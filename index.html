@@ -1,0 +1,566 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>[hidden]{display:none!important}body{margin:0}img{max-width:100%}</style>
+<title>Real ou IA?</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;900&family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: sala de projeção. Tela de amostra (visor de câmera) à esquerda, painel de decisão à direita; empilha no celular. */
+:root {
+  --ink: #0b0d12;          /* fundo da sala */
+  --panel: #151922;        /* painel e superfícies */
+  --line: #2a3140;         /* bordas e divisórias */
+  --fg: #eef1f6;           /* texto principal */
+  --muted: #9aa3b5;        /* texto secundário */
+  --real: #ffb545;         /* botão É REAL (âmbar, luz de filme) */
+  --ia: #8fb8ff;           /* botão É IA (azul de tela) */
+  --ok: #4fd18b;           /* acertou */
+  --bad: #ff6b6b;          /* errou */
+  --on-real: #241500;
+  --on-ia: #0a1730;
+  --f-display: "Big Shoulders Display", "Arial Narrow", Impact, sans-serif;
+  --f-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body {
+  background: var(--ink);
+  color: var(--fg);
+  font-family: var(--f-body);
+  font-size: 17px;
+  line-height: 1.5;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--ink); }
+.app {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 14px 18px;
+  gap: 14px;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+button { font: inherit; cursor: pointer; border: 0; }
+button:focus-visible, a:focus-visible { outline: 3px solid var(--fg); outline-offset: 3px; }
+a { color: inherit; }
+
+/* Barra superior */
+.topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.brand { font-family: var(--f-display); font-weight: 900; font-size: 26px; letter-spacing: .02em; text-transform: uppercase; }
+.brand .q { color: var(--real); }
+.brand .ia { color: var(--ia); }
+.scoreline { display: flex; gap: 10px; align-items: center; font-family: var(--f-mono); font-size: 15px; font-variant-numeric: tabular-nums; }
+.chip { border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; background: var(--panel); white-space: nowrap; }
+.chip b { color: var(--fg); font-weight: 500; }
+.dots { display: flex; gap: 6px; }
+.dot { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--line); }
+.dot.ok { background: var(--ok); border-color: var(--ok); }
+.dot.bad { background: var(--bad); border-color: var(--bad); }
+.dot.now { border-color: var(--fg); }
+
+/* Tela inicial */
+.intro {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: clamp(20px, 4vw, 56px);
+  align-items: center;
+  padding-block: clamp(12px, 4vh, 48px);
+}
+.intro h1 {
+  font-family: var(--f-display);
+  font-weight: 900;
+  font-size: clamp(64px, 12vw, 180px);
+  line-height: .86;
+  margin: 0 0 18px;
+  text-transform: uppercase;
+  text-wrap: balance;
+}
+.intro h1 .r { color: var(--real); display: block; }
+.intro h1 .i { color: var(--ia); }
+.intro p.lead { font-size: clamp(18px, 1.8vw, 24px); max-width: 34ch; margin: 0 0 26px; color: var(--fg); }
+.facts { font-family: var(--f-mono); font-size: 14px; color: var(--muted); margin: 0 0 28px; display: flex; flex-wrap: wrap; gap: 8px 18px; }
+.run-help { color: var(--muted); font-size: 14px; margin: 18px 0 0; }
+.run-help code { color: var(--fg); }
+.btn-main {
+  background: var(--fg); color: var(--ink);
+  font-family: var(--f-display); font-weight: 900; text-transform: uppercase; letter-spacing: .04em;
+  font-size: clamp(24px, 2.6vw, 34px);
+  padding: 16px 44px; border-radius: 14px;
+}
+.btn-main:hover { filter: brightness(.9); }
+.preview-strip { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.preview-strip .tile { position: relative; aspect-ratio: 4 / 5; border-radius: 12px; overflow: hidden; background: #000; border: 1px solid var(--line); max-width: 100%; }
+.preview-strip .tile:nth-child(2) { transform: translateY(28px); }
+.preview-strip img, .preview-strip video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.preview-strip .tag { position: absolute; left: 10px; bottom: 10px; font-family: var(--f-mono); font-size: 13px; background: rgba(11,13,18,.78); padding: 4px 10px; border-radius: 6px; }
+
+/* Jogo */
+.game { flex: 1; display: grid; grid-template-columns: minmax(0, 1.75fr) minmax(300px, 1fr); gap: 18px; min-height: 0; }
+.stage {
+  position: relative;
+  background: #000;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  min-height: 320px;
+  height: calc(100vh - 110px);
+  max-height: 900px;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+}
+.stage video, .stage img { width: 100%; height: 100%; object-fit: contain; display: block; background: #000; }
+/* cantos de visor */
+.corner { position: absolute; width: 28px; height: 28px; border-color: rgba(238,241,246,.7); border-style: solid; pointer-events: none; }
+.corner.tl { top: 14px; left: 14px; border-width: 3px 0 0 3px; }
+.corner.tr { top: 14px; right: 14px; border-width: 3px 3px 0 0; }
+.corner.bl { bottom: 14px; left: 14px; border-width: 0 0 3px 3px; }
+.corner.br { bottom: 14px; right: 14px; border-width: 0 3px 3px 0; }
+.stage-label { position: absolute; top: 16px; left: 52px; font-family: var(--f-mono); font-size: 13px; background: rgba(11,13,18,.72); padding: 4px 10px; border-radius: 6px; display: flex; gap: 8px; align-items: center; pointer-events: none; }
+.rec { width: 9px; height: 9px; border-radius: 50%; background: var(--bad); animation: blink 1.4s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+
+.side { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.ask { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+.ask h2 { font-family: var(--f-display); font-weight: 700; text-transform: uppercase; font-size: clamp(26px, 2.4vw, 36px); line-height: 1; margin: 0; letter-spacing: .02em; }
+.ask .hint { color: var(--muted); margin: 0; font-size: 15px; }
+.choices { display: grid; grid-template-columns: 1fr; gap: 12px; }
+.choice {
+  border-radius: 14px; padding: 20px 16px;
+  font-family: var(--f-display); font-weight: 900; text-transform: uppercase; letter-spacing: .03em;
+  font-size: clamp(34px, 4vw, 58px); line-height: 1;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+}
+.choice .key { font-family: var(--f-mono); font-weight: 500; font-size: 14px; opacity: .65; border: 1.5px solid currentColor; border-radius: 6px; padding: 2px 8px; letter-spacing: 0; }
+.choice.real { background: var(--real); color: var(--on-real); }
+.choice.ia { background: var(--ia); color: var(--on-ia); }
+.choice:hover { filter: brightness(1.08); }
+.choice:active { transform: translateY(1px); }
+
+.verdict { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 12px; border-top: 6px solid var(--line); }
+.verdict.ok { border-top-color: var(--ok); }
+.verdict.bad { border-top-color: var(--bad); }
+.verdict .big { font-family: var(--f-display); font-weight: 900; text-transform: uppercase; font-size: clamp(44px, 5vw, 72px); line-height: .9; margin: 0; }
+.verdict.ok .big { color: var(--ok); }
+.verdict.bad .big { color: var(--bad); }
+.answer { font-size: clamp(18px, 1.6vw, 22px); margin: 0; }
+.answer b { font-weight: 700; }
+.pill { display: inline-block; font-family: var(--f-mono); font-size: 14px; padding: 3px 10px; border-radius: 999px; vertical-align: 2px; }
+.pill.real { background: var(--real); color: var(--on-real); }
+.pill.ia { background: var(--ia); color: var(--on-ia); }
+.tip { margin: 0; font-size: clamp(16px, 1.3vw, 19px); }
+.tip-label { display: block; font-family: var(--f-mono); font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: 4px; }
+.credit { margin: 0; font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+.btn-next { background: var(--fg); color: var(--ink); font-family: var(--f-display); font-weight: 900; text-transform: uppercase; font-size: 28px; letter-spacing: .04em; padding: 14px 20px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; }
+.btn-next .key { font-family: var(--f-mono); font-weight: 500; font-size: 13px; opacity: .6; }
+.btn-next:hover { filter: brightness(.9); }
+
+/* Tela final */
+.final { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: clamp(20px, 4vw, 56px); align-items: start; padding-block: clamp(8px, 3vh, 36px); }
+.final .eyebrow { font-family: var(--f-mono); font-size: 14px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin: 0 0 6px; }
+.final .score { font-family: var(--f-display); font-weight: 900; font-size: clamp(110px, 16vw, 240px); line-height: .82; margin: 0; font-variant-numeric: tabular-nums; }
+.final .score small { font-size: .38em; color: var(--muted); }
+.final .msg { font-size: clamp(20px, 2vw, 28px); margin: 18px 0 26px; max-width: 30ch; text-wrap: balance; }
+.recap { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.recap li { display: grid; grid-template-columns: 88px minmax(0, 1fr) auto; gap: 14px; align-items: center; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 8px 14px 8px 8px; }
+.recap .thumb { width: 88px; height: 56px; border-radius: 8px; overflow: hidden; background: #000; }
+.recap .thumb img, .recap .thumb video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.recap .t { min-width: 0; }
+.recap .t strong { display: block; font-size: 16px; }
+.recap .t span { font-size: 13px; color: var(--muted); }
+.mark { font-family: var(--f-mono); font-size: 14px; padding: 4px 10px; border-radius: 6px; white-space: nowrap; }
+.mark.ok { color: var(--ok); border: 1.5px solid var(--ok); }
+.mark.bad { color: var(--bad); border: 1.5px solid var(--bad); }
+
+@media (max-width: 900px) {
+  .intro, .final { grid-template-columns: 1fr; }
+  .preview-strip { max-width: 420px; }
+  .preview-strip .tile:nth-child(2) { transform: none; }
+  .game { grid-template-columns: 1fr; }
+  .stage { height: auto; aspect-ratio: 4 / 5; max-height: 62vh; min-height: 260px; }
+  .choices { grid-template-columns: 1fr 1fr; }
+  .choice { flex-direction: column; justify-content: center; font-size: clamp(30px, 9vw, 44px); padding: 18px 10px; }
+  .choice .key { display: none; }
+  .btn-next .key { display: none; }
+}
+@media (max-width: 520px) {
+  .brand { font-size: 22px; }
+  .stage-label { font-size: 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rec { animation: none; }
+}
+</style>
+</head>
+<body>
+
+<div class="app" id="app">
+  <header class="topbar">
+    <div class="brand"><span class="q">Real</span> ou <span class="ia">IA?</span></div>
+    <div class="scoreline" id="scoreline" hidden>
+      <div class="dots" id="dots" aria-hidden="true"></div>
+      <span class="chip" id="round-chip"><b id="round-n">1</b> de 5</span>
+      <span class="chip">acertos <b id="hits">0</b></span>
+    </div>
+  </header>
+
+  <!-- Tela inicial -->
+  <section class="intro" id="screen-intro">
+    <div>
+      <h1><span class="r">Real</span> ou <span class="i">IA?</span></h1>
+      <p class="lead">Cada rodada mostra um vídeo ou uma foto. Decida em grupo se aquilo foi filmado de verdade ou criado por inteligência artificial.</p>
+      <div class="facts"><span>12 itens no banco</span><span>5 sorteados por partida</span><span>8 vídeos · 4 fotos</span></div>
+      <button class="btn-main" id="btn-start" type="button">Começar</button>
+      <p class="run-help" id="run-help" hidden>Para carregar os vídeos, inicie pelo terminal com <code>python3 run_game.py</code> (no Windows, <code>py run_game.py</code>).</p>
+    </div>
+    <div class="preview-strip" aria-hidden="true">
+      <div class="tile"><img src="media/m7s2.jpg" alt=""><span class="tag">real?</span></div>
+      <div class="tile"><img src="media/q1v5.jpg" alt=""><span class="tag">ou IA?</span></div>
+    </div>
+  </section>
+
+  <!-- Rodada -->
+  <section class="game" id="screen-game" hidden>
+    <div class="stage" id="stage">
+      <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+      <div class="stage-label"><span class="rec"></span><span id="stage-label">AMOSTRA 1/5</span></div>
+    </div>
+    <div class="side">
+      <div class="ask" id="ask">
+        <h2>Isso é real ou feito por IA?</h2>
+        <p class="hint">Olhem com calma: mãos, textos, reflexos, movimento.</p>
+        <div class="choices">
+          <button class="choice real" id="btn-real" type="button">É real <span class="key">R</span></button>
+          <button class="choice ia" id="btn-ia" type="button">É IA <span class="key">I</span></button>
+        </div>
+      </div>
+      <div class="verdict" id="verdict" hidden>
+        <p class="big" id="v-big">Acertou!</p>
+        <p class="answer" id="v-answer"></p>
+        <p class="tip"><span class="tip-label">Como dava pra perceber</span><span id="v-tip"></span></p>
+        <p class="credit" id="v-credit"></p>
+        <button class="btn-next" id="btn-next" type="button"><span id="next-label">Próximo</span><span class="key">Enter</span></button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Tela final -->
+  <section class="final" id="screen-final" hidden>
+    <div>
+      <p class="eyebrow">Resultado da turma</p>
+      <p class="score"><span id="f-hits">3</span><small> de 5</small></p>
+      <p class="msg" id="f-msg"></p>
+      <button class="btn-main" id="btn-again" type="button">Jogar de novo</button>
+    </div>
+    <ul class="recap" id="recap"></ul>
+  </section>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var PEXELS = "Licença Pexels (uso livre)";
+  var ITEMS = [
+    { id: "k7q2", type: "video", src: "media/k7q2.mp4", ai: false,
+      title: "Ondas batendo em falésias, vistas de drone",
+      tip: "Filmagem real de drone sobre a costa. A espuma se espalha seguindo a física da água e cada pedra mantém a mesma forma do começo ao fim. Na IA, detalhes pequenos costumam mudar ou derreter quando a câmera se move.",
+      credit: "Mathijs Oggel · Pexels · " + PEXELS,
+      url: "https://www.pexels.com/video/drone-flying-over-cliffs-and-blue-ocean-with-waves-16298299/" },
+    { id: "p3m8", type: "video", src: "media/p3m8.mp4", ai: true,
+      title: "Costa de Big Sur ao pôr do sol, vista de drone",
+      tip: "Gerado pelo Sora (OpenAI). A luz dourada é perfeita e igual em tudo, como cartão-postal. As ondas quebram em faixas brancas lisas demais, sem as bolhas e respingos da água de verdade. E no canto inferior direito aparecem barrinhas verticais: é a marca d'água discreta do Sora.",
+      credit: "Sora / OpenAI · Wikimedia Commons · Domínio público",
+      url: "https://commons.wikimedia.org/wiki/File:Big-sur.webm" },
+    { id: "x9d4", type: "video", src: "media/x9d4.mp4", ai: true,
+      title: "Gato acordando a dona na cama",
+      tip: "Gerado pelo Sora (OpenAI). A cena dá um salto: a dona muda de posição sem se mexer, e um braço surge do edredom do nada. Repare também na pata do gato tocando o rosto, que parece brotar do corpo. Corpos e membros que aparecem e somem são um sinal clássico de IA.",
+      credit: "Sora / OpenAI · Wikimedia Commons · Domínio público",
+      url: "https://commons.wikimedia.org/wiki/File:Cat-on-bed.webm" },
+    { id: "b2r6", type: "video", src: "media/b2r6.mp4", ai: false,
+      title: "Gato Scottish Fold recebendo carinho",
+      tip: "Vídeo real. Quando a mão passa, o pelo afunda e volta do jeito certo, e os dedos continuam sendo cinco o tempo todo. Mãos são o ponto fraco da IA: em vídeo gerado elas costumam ganhar ou perder dedos e se fundir com o que tocam.",
+      credit: "cottonbro studio · Pexels · " + PEXELS,
+      url: "https://www.pexels.com/video/a-cat-getting-petting-on-the-bed-6865077/" },
+    { id: "t5w1", type: "video", src: "media/t5w1.mp4", ai: false,
+      title: "Rua de Tóquio à noite, cheia de gente",
+      tip: "Vídeo real do bairro de Kabukicho. Dá pra ler as placas: o letreiro vermelho diz 歌舞伎町一番街 de verdade. A IA ainda erra texto, gerando letras que parecem japonês mas não formam palavras. E cada pessoa da multidão anda num ritmo próprio.",
+      credit: "Tianwang Xiao · Pexels · " + PEXELS,
+      url: "https://www.pexels.com/video/people-walking-around-the-city-during-night-3360906/" },
+    { id: "h8n3", type: "video", src: "media/h8n3.mp4", ai: true,
+      title: "Mulher caminhando por Tóquio na chuva",
+      tip: "Gerado pelo Sora (OpenAI). Tente ler as placas: são rabiscos que imitam japonês. O reflexo no chão molhado não acompanha direito os letreiros, e as pessoas ao fundo deslizam sem andar de verdade. No canto inferior direito ficam as barrinhas da marca d'água do Sora.",
+      credit: "Sora / OpenAI · Wikimedia Commons · Domínio público",
+      url: "https://commons.wikimedia.org/wiki/File:OpenAI_Sora_in_Action-_Tokyo_Walk.webm" },
+    { id: "z4c7", type: "video", src: "media/z4c7.mp4", ai: true,
+      title: "Pombo-coroado de penacho azul",
+      tip: "Gerado pelo Sora (OpenAI). A ave existe (pombo-coroado-de-victoria), mas olhe o cenário: listras verdes sem forma no fundo e uma barra com uma faixa azul pontilhada embaixo, que não lembram nada real. As penas da coroa parecem fios de renda repetidos. As barrinhas no canto inferior direito são a marca d'água do Sora.",
+      credit: "Sora / OpenAI · Wikimedia Commons · Domínio público",
+      url: "https://commons.wikimedia.org/wiki/File:Victoria-crowned-pigeon.webm" },
+    { id: "f6j9", type: "video", src: "media/f6j9.mp4", ai: false,
+      title: "Arara de perto, entre galhos",
+      tip: "Vídeo real. O galho desfocado na frente fica parado no mesmo lugar, como numa lente de verdade, e as listrinhas de penas do rosto mantêm o mesmo desenho a cada piscada. Na IA esse padrão fino costuma tremer ou mudar de um quadro para o outro.",
+      credit: "R Bude · Pexels · " + PEXELS,
+      url: "https://www.pexels.com/video/close-up-shot-of-a-parrot-5129567/" },
+    { id: "q1v5", type: "image", src: "media/q1v5.jpg", ai: true,
+      title: "Retrato de uma mulher sorrindo",
+      tip: "Essa pessoa não existe: o rosto foi criado pela IA StyleGAN2 (site This Person Does Not Exist). O rosto é quase perfeito, por isso engana. Os erros estão em volta: uma mecha estranha espetada no alto da cabeça, brinco aparecendo só de um lado e manchas rosadas nos cantos de baixo que não são ombro nem roupa.",
+      credit: "StyleGAN2 (thispersondoesnotexist.com) · Wikimedia Commons · Domínio público",
+      url: "https://commons.wikimedia.org/wiki/File:This_Person_Does_Not_Exist_example.jpg" },
+    { id: "m7s2", type: "image", src: "media/m7s2.jpg", ai: false,
+      title: "Rosto de um homem idoso, de perfil",
+      tip: "Foto real. As rugas, os poros e os pelos da barba têm tamanhos e direções diferentes, sem padrão repetido, e a luz da janela cria sombras coerentes em todo o rosto. Pele de IA costuma ficar lisa e encerada, ou com textura repetida.",
+      credit: "Kindel Media · Pexels · " + PEXELS,
+      url: "https://www.pexels.com/photo/close-up-shot-of-an-elderly-man-s-face-8172569/" },
+    { id: "d3y8", type: "image", src: "media/d3y8.jpg", ai: true,
+      title: "Prato de frango grelhado com salada",
+      tip: "Gerado pelo Midjourney. Olhe o talher no canto direito: ele derrete e se funde com a mesa. O tomate cortado tem marcas de grelha queimadas no lado de dentro, o que não acontece na cozinha, e o pote laranja ao fundo tem folhas grudadas por fora.",
+      credit: "Dennis Sylvester Hurd (Midjourney) · Wikimedia Commons · CC0",
+      url: "https://commons.wikimedia.org/wiki/File:Generative_AI_can_be_used_to_create_realistic_images_of_food_dishes.jpg" },
+    { id: "w5g4", type: "image", src: "media/w5g4.jpg", ai: false,
+      title: "Salada Caesar com frango e ovo",
+      tip: "Foto real. O saleiro e o pimenteiro têm formato exato e simétrico, as gemas dos ovos têm brilhos diferentes entre si e as folhas têm bordas irregulares e rasgadas. Objetos do dia a dia com formato certinho ainda são difíceis para a IA.",
+      credit: "Sergei Starostin · Pexels · " + PEXELS,
+      url: "https://www.pexels.com/photo/delicious-caesar-salad-with-grilled-chicken-28618643/" }
+  ];
+  var ROUNDS = 5;
+  var byId = {};
+  ITEMS.forEach(function (it) { byId[it.id] = it; });
+
+  var state = { screen: "intro", order: [], idx: 0, answers: [] };
+
+  var $ = function (id) { return document.getElementById(id); };
+  var screens = { intro: $("screen-intro"), game: $("screen-game"), final: $("screen-final") };
+  $("run-help").hidden = (window.location.protocol !== "file:");
+
+  function shuffle(a) {
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+
+  // Sorteio com equilíbrio: pelo menos 2 reais e 2 de IA, e pelo menos 3 vídeos.
+  function draw() {
+    for (var tries = 0; tries < 200; tries++) {
+      var pick = shuffle(ITEMS.slice()).slice(0, ROUNDS);
+      var ai = pick.filter(function (x) { return x.ai; }).length;
+      var vids = pick.filter(function (x) { return x.type === "video"; }).length;
+      var photos = pick.filter(function (x) { return x.type === "image"; }).length;
+      if (ai >= 2 && ai <= 3 && vids >= 3 && photos >= 1) return pick.map(function (x) { return x.id; });
+    }
+    var validPicks = [];
+    var images = ITEMS.filter(function (x) { return x.type === "image"; });
+    var videos = ITEMS.filter(function (x) { return x.type === "video"; });
+    images.forEach(function (image) {
+      for (var a = 0; a < videos.length - 3; a++) {
+        for (var b = a + 1; b < videos.length - 2; b++) {
+          for (var c = b + 1; c < videos.length - 1; c++) {
+            for (var d = c + 1; d < videos.length; d++) {
+              var pick = [image, videos[a], videos[b], videos[c], videos[d]];
+              var ai = pick.filter(function (x) { return x.ai; }).length;
+              if (ai >= 2 && ai <= 3) validPicks.push(pick);
+            }
+          }
+        }
+      }
+    });
+    return shuffle(validPicks)[0].map(function (x) { return x.id; });
+  }
+
+  function show(name) {
+    state.screen = name;
+    Object.keys(screens).forEach(function (k) { screens[k].hidden = (k !== name); });
+    $("scoreline").hidden = (name !== "game");
+    if (name !== "intro") pauseIntro(); else playIntro();
+  }
+  function pauseIntro() { document.querySelectorAll(".preview-strip video").forEach(function (v) { v.pause(); }); }
+  function playIntro() { document.querySelectorAll(".preview-strip video").forEach(function (v) { var p = v.play(); if (p && p.catch) p.catch(function () {}); }); }
+
+  function mediaEl(it, thumb) {
+    var el;
+    if (it.type === "video") {
+      el = document.createElement("video");
+      el.src = it.src;
+      el.muted = true; el.loop = true; el.autoplay = true;
+      el.setAttribute("playsinline", ""); el.setAttribute("muted", "");
+      if (!thumb) { el.controls = true; el.preload = "auto"; } else { el.preload = "metadata"; }
+    } else {
+      el = document.createElement("img");
+      el.src = it.src;
+      el.alt = thumb ? "" : "Imagem para avaliar";
+      el.decoding = "async";
+    }
+    return el;
+  }
+
+  function preload(id) {
+    var it = byId[id];
+    if (!it || it.type !== "image") return;
+    var im = new Image();
+    im.src = it.src;
+  }
+
+  function renderDots() {
+    var d = $("dots"); d.innerHTML = "";
+    for (var i = 0; i < ROUNDS; i++) {
+      var s = document.createElement("span"); s.className = "dot";
+      var a = state.answers[i];
+      if (a) s.classList.add(a.correct ? "ok" : "bad");
+      else if (i === state.idx) s.classList.add("now");
+      d.appendChild(s);
+    }
+    $("round-n").textContent = String(Math.min(state.idx + 1, ROUNDS));
+    $("hits").textContent = String(state.answers.filter(function (a) { return a && a.correct; }).length);
+  }
+
+  function renderRound() {
+    var it = byId[state.order[state.idx]];
+    var stage = $("stage");
+    var old = stage.querySelector("video, img");
+    if (old) { if (old.pause) old.pause(); old.remove(); }
+    var el = mediaEl(it, false);
+    stage.insertBefore(el, stage.firstChild);
+    if (el.play) { var p = el.play(); if (p && p.catch) p.catch(function () {}); }
+    $("stage-label").textContent = "AMOSTRA " + (state.idx + 1) + "/" + ROUNDS + (it.type === "video" ? " · VÍDEO" : " · FOTO");
+    var answered = state.answers[state.idx];
+    $("ask").hidden = !!answered;
+    $("verdict").hidden = !answered;
+    if (answered) fillVerdict(it, answered);
+    renderDots();
+    preload(state.order[state.idx + 1]);
+  }
+
+  function fillVerdict(it, a) {
+    var v = $("verdict");
+    v.classList.toggle("ok", a.correct);
+    v.classList.toggle("bad", !a.correct);
+    $("v-big").textContent = a.correct ? "Acertou!" : "Errou!";
+    $("v-answer").innerHTML = "";
+    var txt = document.createElement("span");
+    txt.textContent = "Resposta: ";
+    var pill = document.createElement("span");
+    pill.className = "pill " + (it.ai ? "ia" : "real");
+    pill.textContent = it.ai ? "FEITO POR IA" : "REAL";
+    var t2 = document.createElement("span");
+    t2.textContent = " " + it.title + ".";
+    $("v-answer").append(txt, pill, t2);
+    $("v-tip").textContent = it.tip;
+    var c = $("v-credit"); c.innerHTML = "";
+    c.append(document.createTextNode("Fonte: " + it.credit + " · "));
+    var link = document.createElement("a");
+    link.href = it.url; link.target = "_blank"; link.rel = "noopener"; link.textContent = "ver original";
+    c.appendChild(link);
+    $("next-label").textContent = state.idx + 1 >= ROUNDS ? "Ver resultado" : "Próximo";
+    setTimeout(function () { $("btn-next").focus({ preventScroll: true }); }, 30);
+  }
+
+  function answer(saidAI) {
+    if (state.screen !== "game" || state.answers[state.idx]) return;
+    var it = byId[state.order[state.idx]];
+    var a = { said: saidAI, correct: saidAI === it.ai };
+    state.answers[state.idx] = a;
+    $("ask").hidden = true;
+    $("verdict").hidden = false;
+    fillVerdict(it, a);
+    renderDots();
+  }
+
+  function next() {
+    if (state.screen !== "game" || !state.answers[state.idx]) return;
+    if (state.idx + 1 >= ROUNDS) { renderFinal(); show("final"); stopStage(); return; }
+    state.idx++;
+    renderRound();
+  }
+
+  function stopStage() { var v = $("stage").querySelector("video"); if (v) v.pause(); }
+
+  var MESSAGES = [
+    "A IA ganhou essa rodada. E esse é exatamente o ponto: hoje quase ninguém consegue diferenciar no olho.",
+    "A IA ganhou essa rodada. E esse é exatamente o ponto: hoje quase ninguém consegue diferenciar no olho.",
+    "A IA passou a perna na turma. Os detalhes estavam lá, mas foi difícil enxergar.",
+    "Metade e pouco. A IA já engana muita gente, mas vocês pegaram alguns sinais.",
+    "Muito bom. Quase nada passou, mas um item ainda enganou vocês.",
+    "Olho de detetive. Acertaram todas, e isso hoje é raro."
+  ];
+
+  function renderFinal() {
+    var hits = state.answers.filter(function (a) { return a && a.correct; }).length;
+    $("f-hits").textContent = String(hits);
+    $("f-msg").textContent = MESSAGES[hits];
+    var ul = $("recap"); ul.innerHTML = "";
+    state.order.forEach(function (id, i) {
+      var it = byId[id], a = state.answers[i] || { correct: false };
+      var li = document.createElement("li");
+      var th = document.createElement("div"); th.className = "thumb";
+      var m = mediaEl(it, true);
+      if (m.tagName === "VIDEO") { m.autoplay = false; m.removeAttribute("autoplay"); }
+      th.appendChild(m);
+      var t = document.createElement("div"); t.className = "t";
+      var st = document.createElement("strong"); st.textContent = it.title;
+      var sp = document.createElement("span"); sp.textContent = (it.ai ? "Feito por IA" : "Real") + " · " + (it.type === "video" ? "vídeo" : "foto");
+      t.append(st, sp);
+      var mk = document.createElement("span"); mk.className = "mark " + (a.correct ? "ok" : "bad"); mk.textContent = a.correct ? "acertou" : "errou";
+      li.append(th, t, mk);
+      ul.appendChild(li);
+    });
+  }
+
+  function start() {
+    state.order = draw();
+    state.idx = 0;
+    state.answers = [];
+    show("game");
+    renderRound();
+  }
+
+  $("btn-start").addEventListener("click", start);
+  $("btn-again").addEventListener("click", start);
+  $("btn-real").addEventListener("click", function () { answer(false); });
+  $("btn-ia").addEventListener("click", function () { answer(true); });
+  $("btn-next").addEventListener("click", next);
+
+  document.addEventListener("keydown", function (e) {
+    if (e.altKey || e.ctrlKey || e.metaKey) return;
+    var k = e.key.toLowerCase();
+    if (state.screen === "game") {
+      if (!state.answers[state.idx]) {
+        if (k === "r") { e.preventDefault(); answer(false); }
+        else if (k === "i") { e.preventDefault(); answer(true); }
+      } else if (k === "enter" || k === "arrowright" || k === "n") {
+        if (document.activeElement && document.activeElement.tagName === "A") return;
+        e.preventDefault(); next();
+      }
+    } else if (state.screen !== "game" && k === "enter" && document.activeElement === document.body) {
+      e.preventDefault(); start();
+    }
+  });
+
+  // Mantém a partida em andamento se a página for atualizada enquanto alguém joga.
+  function boot(data) {
+    if (data && data.screen && data.screen !== "intro" && Array.isArray(data.order) && data.order.every(function (id) { return byId[id]; })) {
+      state.order = data.order; state.idx = data.idx || 0; state.answers = data.answers || [];
+      if (data.screen === "final") { renderFinal(); show("final"); }
+      else { show("game"); renderRound(); }
+    } else {
+      show("intro");
+    }
+  }
+  if (window.claude && window.claude.hot && window.claude.hot.snapshot) {
+    window.claude.hot.snapshot(function () { return { screen: state.screen, order: state.order, idx: state.idx, answers: state.answers }; });
+  }
+  if (window.claude && window.claude.hot && window.claude.hot.ready) window.claude.hot.ready(boot);
+  else boot(window.claude && window.claude.hot && window.claude.hot.data || {});
+})();
+</script>
+
+</body>
+</html>
