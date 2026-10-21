@@ -1,0 +1,13 @@
+# Artefatos de build (cópia publicável gerada para o Freebuff Sites)
+dist/
+
+# Metadados da plataforma Freebuff
+.freebuff/
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Sistema
+.DS_Store
+Thumbs.db
